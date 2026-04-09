@@ -1,0 +1,82 @@
+IDENTIFICATION DIVISION.
+       PROGRAM-ID. BANK001.
+       AUTHOR. LEGACY-SYSTEM-GEN.
+
+       ENVIRONMENT DIVISION.
+       INPUT-OUTPUT SECTION.
+       FILE-CONTROL.
+           SELECT CUSTOMER-FILE ASSIGN TO "CUST.DAT"
+               ORGANIZATION IS LINE SEQUENTIAL.
+           SELECT REPORT-FILE ASSIGN TO "INTEREST_REPORT.TXT"
+               ORGANIZATION IS LINE SEQUENTIAL.
+
+       DATA DIVISION.
+       FILE SECTION.
+       FD  CUSTOMER-FILE.
+       01  CUSTOMER-RECORD.
+           05  CUST-ID           PIC X(05).
+           05  CUST-NAME         PIC X(20).
+           05  CUST-BALANCE      PIC 9(07)V99.
+           05  CUST-TYPE         PIC X(01).
+               88  SAVINGS-ACC   VALUE "S".
+               88  CHECKING-ACC  VALUE "C".
+
+       FD  REPORT-FILE.
+       01  REPORT-RECORD         PIC X(80).
+
+       WORKING-STORAGE SECTION.
+       01  WS-FLAGS.
+           05  WS-EOF-FLAG       PIC X(01) VALUE "N".
+       01  WS-CALCULATIONS.
+           05  WS-INTEREST-RATE  PIC V999 VALUE ZERO.
+           05  WS-INTEREST-AMT   PIC 9(07)V99 VALUE ZERO.
+           05  WS-TOTAL-BAL      PIC 9(09)V99 VALUE ZERO.
+       01  WS-REPORT-LINE.
+           05  FILLER            PIC X(02) VALUE SPACES.
+           05  DET-ID            PIC X(05).
+           05  FILLER            PIC X(03) VALUE " | ".
+           05  DET-NAME          PIC X(20).
+           05  FILLER            PIC X(03) VALUE " | ".
+           05  DET-INTEREST      PIC $$,$$$,$$9.99.
+           05  FILLER            PIC X(03) VALUE " | ".
+           05  DET-NEW-BAL       PIC $$,$$$,$$9.99.
+
+       PROCEDURE DIVISION.
+       000-MAIN-LOGIC.
+           OPEN INPUT CUSTOMER-FILE
+                OUTPUT REPORT-FILE
+           
+           PERFORM 100-READ-CUSTOMER
+           PERFORM UNTIL WS-EOF-FLAG = "Y"
+               PERFORM 200-PROCESS-INTEREST
+               PERFORM 300-WRITE-REPORT
+               PERFORM 100-READ-CUSTOMER
+           END-PERFORM
+           
+           CLOSE CUSTOMER-FILE REPORT-FILE
+           STOP RUN.
+
+       100-READ-CUSTOMER.
+           READ CUSTOMER-FILE
+               AT END MOVE "Y" TO WS-EOF-FLAG
+           END-READ.
+
+       200-PROCESS-INTEREST.
+           IF SAVINGS-ACC
+               MOVE 0.035 TO WS-INTEREST-RATE
+           ELSE IF CHECKING-ACC
+               MOVE 0.010 TO WS-INTEREST-RATE
+           ELSE
+               MOVE 0.005 TO WS-INTEREST-RATE
+           END-IF.
+
+           COMPUTE WS-INTEREST-AMT = CUST-BALANCE * WS-INTEREST-RATE
+           COMPUTE WS-TOTAL-BAL = CUST-BALANCE + WS-INTEREST-AMT.
+
+       300-WRITE-REPORT.
+           MOVE SPACES TO WS-REPORT-LINE
+           MOVE CUST-ID TO DET-ID
+           MOVE CUST-NAME TO DET-NAME
+           MOVE WS-INTEREST-AMT TO DET-INTEREST
+           MOVE WS-TOTAL-BAL TO DET-NEW-BAL
+           WRITE REPORT-RECORD FROM WS-REPORT-LINE.
